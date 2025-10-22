@@ -1,0 +1,23 @@
+﻿run_name: trec_hf_3shot
+task: qa
+dataset:
+  name: trec
+  split: test[:100]
+  question_field: text
+  answer_field: label-coarse
+prompt:
+  system: |
+    Answer the question concisely with the best single phrase.
+  user_template: |
+    Q: {question}
+    A:
+  shots: 3
+  shots_source: examples/fewshot_examples.jsonl
+model:
+  backend: hf
+  model_name: mistralai/Mixtral-8x7B-Instruct
+  temperature: 0.0
+evaluation:
+  metrics: ["exact_match", "f1_token"]
+seed: 123
+batch_size: 4

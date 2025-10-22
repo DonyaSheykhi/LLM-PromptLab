@@ -1,0 +1,13 @@
+﻿# venv / cache
+.venv/
+__pycache__/
+*.pyc
+
+# local runs & artifacts
+runs/
+*.ipynb_checkpoints
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
