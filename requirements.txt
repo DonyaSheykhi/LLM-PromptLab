@@ -1,0 +1,28 @@
+# Core
+python-dotenv>=1.0.1
+PyYAML>=6.0
+tqdm>=4.66.4
+colorama>=0.4.6
+pandas>=2.2.3
+numpy>=1.26.4
+
+# NLP + model backends
+openai>=1.40.2
+anthropic>=0.34.0
+transformers>=4.44.2
+datasets>=3.0.2
+torch>=2.3.0
+sentencepiece>=0.2.0
+
+# Evaluation & reporting
+scikit-learn>=1.5.1
+rouge-score>=0.1.2
+evaluate>=0.4.3
+matplotlib>=3.9.2
+
+# Optional integrations
+langchain>=0.3.0
+langchain-openai>=0.2.0
+
+# Misc / reproducibility
+click>=8.1.7
