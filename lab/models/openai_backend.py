@@ -1,6 +1,19 @@
 ﻿import os
+import time
 from openai import OpenAI
 from .base import BaseBackend
+
+for attempt in range(6):
+    try:
+        resp=self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role":"user","content":prompt}],
+            max_tokens=max_tokens, temperature=temperature,
+        )
+        return resp.choices[0].message.content or ""
+    except Exception as e:
+        if attempt == 5: raise
+        time.sleep(2 ** attempt / 2.0)
 
 class OpenAIBackend(BaseBackend):
     def __init__(self, model_cfg):
