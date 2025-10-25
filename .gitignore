@@ -11,3 +11,6 @@ runs/
 .DS_Store
 .vscode/
 .idea/
+
+.env
+*.env
