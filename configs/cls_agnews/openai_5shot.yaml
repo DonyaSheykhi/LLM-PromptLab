@@ -1,0 +1,18 @@
+run_name: agnews_openai_5shot
+task: classification
+dataset: { name: ag_news, split: test[:200], text_field: text, label_field: label }
+labels: ["World","Sports","Business","Sci/Tech"]
+prompt:
+  system: |-
+    You are a precise news classifier. Return only one of the given categories.
+  user_template: |-
+    Classify into: {labels}
+    ---
+    News: "{text}"
+    Answer:
+  shots: 5
+  shots_source: examples/fewshot_examples.jsonl
+model: { backend: openai, model_name: gpt-4o-mini, temperature: 0.0, max_tokens: 20 }
+evaluation: { metrics: ["accuracy","f1_macro"], normalize_labels: true }
+seed: 42
+batch_size: 4

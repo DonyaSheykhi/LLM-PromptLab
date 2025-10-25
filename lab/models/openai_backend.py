@@ -29,3 +29,7 @@ class OpenAIBackend(BaseBackend):
             temperature=temperature,
         )
         return resp.choices[0].message.content or ""
+    except Exception as e:
+        if attempt == 5:
+            raise
+        time.sleep(2 ** attempt / 2.0)  # retry with backoff
