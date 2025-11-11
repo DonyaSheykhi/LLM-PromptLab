@@ -1,0 +1,15 @@
+task: classification
+dataset:
+  name: ag_news
+  split: train
+model:
+  name: distilbert-base-uncased
+  max_tokens: 256
+training:
+  epochs: 2
+  batch_size: 16
+  lr: 2e-5
+  save_dir: runs/agnews_finetuned/
+eval:
+  split: test
+  metrics: [accuracy, f1]
