@@ -1,15 +1,17 @@
 ﻿# lab/run.py
 """
 LLM-PromptLab runner
+
 - Loads a YAML config
-- Prepares dataset & prompt(s)
+- Prepares dataset & prompts
 - Calls a model backend (OpenAI or HF)
-- Computes simple metrics
-- Writes predictions, metrics.json, and summary.md
+- Computes metrics
+- Writes predictions.jsonl, metrics.json, summary.md under runs/<run_name>/
 - Prints lightweight progress logs
 
 Example:
   python -m lab.run --config configs/cls_agnews/openai_0shot.yaml
+  python -m lab.run --config configs/cls_agnews/hf_tiny.yaml
 """
 
 from __future__ import annotations
@@ -21,10 +23,11 @@ import random
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 
 import yaml
 
+# Project modules
 from lab.data import load_dataset_split
 from lab.prompts import build_prompt
 from lab.models.openai_backend import OpenAIBackend
@@ -69,59 +72,86 @@ BACKENDS = {
 # -------------------------
 def run_experiment(cfg: Dict) -> None:
     # 0) seed & folders
-    run_name: str = cfg.get("run_name", f"run_{int(time.time())}")
+    run_name: str = cfg.get("run_name") or f"run_{int(time.time())}"
     seed: Optional[int] = cfg.get("seed")
     set_seed(seed)
 
     run_dir = Path("runs") / run_name
     ensure_dir(run_dir)
 
+    # breadcrumb (helps confirm execution)
+    ensure_dir(Path("runs/_boot"))
+    Path("runs/_boot/started.txt").write_text(
+        f"runner started for {run_name}\n", encoding="utf-8"
+    )
+    log(f"[run] start: {run_name}")
+
     # 1) dataset
-    log(f"[run] config: {run_name}")
+    if "dataset" not in cfg:
+        raise ValueError("Config must include 'dataset' block.")
+    dataset_cfg: Dict = cfg["dataset"]
+
+    # Required dataset fields used by prompts/metrics (defensive defaults)
+    dataset_cfg.setdefault("text_field", "text")         # input text key
+    dataset_cfg.setdefault("label_field", "label")       # reference label key if any
+
     log("[run] loading dataset...")
-    ds = load_dataset_split(cfg["dataset"])
-    log(f"[run] dataset loaded: {len(ds)} samples")
+    ds = load_dataset_split(dataset_cfg)
+    n_total = len(ds) if hasattr(ds, "__len__") else sum(1 for _ in ds)
+    log(f"[run] dataset loaded: {n_total} samples")
 
     # 2) backend
     model_cfg: Dict = cfg.get("model", {})
-    backend_name = model_cfg.get("backend", "openai")
+    backend_name = (model_cfg.get("backend") or "openai").lower()
     if backend_name not in BACKENDS:
-        raise ValueError(f"Unknown backend: {backend_name}. Available: {list(BACKENDS)}")
+        raise ValueError(f"Unknown backend '{backend_name}'. Available: {list(BACKENDS.keys())}")
 
     backend = BACKENDS[backend_name](model_cfg)
     log(f"[run] backend: {backend_name} | model: {model_cfg.get('model_name', '<default>')}")
 
     # 3) labels / prompt settings
-    labels = cfg.get("labels")
-    prompt_cfg = cfg.get("prompt", {})
-    dataset_cfg = cfg.get("dataset", {})
+    labels: Optional[List[str]] = cfg.get("labels")
+    prompt_cfg: Dict = cfg.get("prompt", {})
+    batch_size: int = int(cfg.get("batch_size", 1))
 
-    # 4) loop
+    # 4) inference loop
     predictions: List[str] = []
     references: List[str] = []
-    n_total = len(ds)
+
+    # Convert ds to list if it was a generator
+    if not hasattr(ds, "__len__"):
+        ds = list(ds)
+        n_total = len(ds)
 
     start = time.time()
     for i, ex in enumerate(ds):
+        # progress
         if i % max(1, n_total // 20 or 1) == 0:
             log(f"[run] progress {i}/{n_total}")
 
+        # build prompt
         prompt = build_prompt(prompt_cfg, ex, labels=labels, dataset_cfg=dataset_cfg)
 
+        # generate
         out = backend.generate(
             prompt,
-            max_tokens=model_cfg.get("max_tokens", 64),
-            temperature=model_cfg.get("temperature", 0.0),
+            max_tokens=int(model_cfg.get("max_tokens", 64)),
+            temperature=float(model_cfg.get("temperature", 0.0)),
         )
         predictions.append((out or "").strip())
 
-        # collect reference if available
-        if "label_field" in dataset_cfg:
-            ref = ex.get(dataset_cfg["label_field"])
-            # map int -> label name if labels provided
-            if isinstance(ref, int) and labels:
-                ref = labels[ref]
-            references.append(str(ref))
+        # collect gold label if present
+        ref_key = dataset_cfg.get("label_field", "label")
+        if ref_key in ex:
+            ref_val = ex[ref_key]
+            # map int id -> label string if labels provided
+            if isinstance(ref_val, int) and labels:
+                ref_val = labels[ref_val]
+            references.append(str(ref_val))
+
+        # simple cooperative batching (no real batch API; keeps parity with older code)
+        if batch_size > 1 and (i + 1) % batch_size == 0:
+            time.sleep(0.01)
 
     # 5) write predictions
     pred_path = run_dir / "predictions.jsonl"

@@ -1,0 +1,25 @@
+run_name: agnews_hf_tiny_fast
+task: classification
+dataset:
+  name: ag_news
+  split: test[:40]
+  text_field: text
+  label_field: label
+labels: ["World", "Sports", "Business", "Sci/Tech"]
+prompt:
+  user_template: |-
+    Classify into: {labels}
+    ---
+    News: "{text}"
+    Answer:
+  shots: 0
+model:
+  backend: hf
+  model_name: sshleifer/tiny-gpt2
+  temperature: 0.7
+  max_tokens: 32
+evaluation:
+  metrics: ["accuracy", "f1_macro"]
+  normalize_labels: true
+seed: 42
+batch_size: 2
