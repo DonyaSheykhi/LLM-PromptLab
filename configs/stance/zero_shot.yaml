@@ -1,0 +1,14 @@
+run_name: stance_zero_shot
+task: classification
+dataset: { name: jsonl, path: data/media_small.jsonl, text_field: text, label_field: stance }
+labels: ["pro","neutral","against"]
+prompt:
+  user_template: |-
+    Classify stance as one of {labels}.
+    ---
+    "{text}"
+    Answer:
+  shots: 0
+model: { backend: openai, model_name: gpt-4o-mini, temperature: 0.0, max_tokens: 8 }
+evaluation: { metrics: ["accuracy","f1_macro"], normalize_labels: true }
+seed: 42
